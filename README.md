@@ -1,4 +1,4 @@
-## pysocrata [![PyPi version](https://img.shields.io/pypi/v/checkpoints.svg)](https://pypi.python.org/pypi/missingno/) ![t](https://img.shields.io/badge/status-beta-yellow.svg)
+## pysocrata [![PyPi version](https://img.shields.io/pypi/v/pysocrata.svg)](https://pypi.python.org/pypi/pysocrata/) ![t](https://img.shields.io/badge/status-beta-yellow.svg)
 
 ### About
 `pysocrata` is a small Python module which provides an interface for fetching and consuming metadata about the data
