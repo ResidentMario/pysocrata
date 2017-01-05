@@ -1,1 +1,4 @@
 .idea/
+dist/
+pysocrata.egg-info/
+pysocrata/__pycache__/

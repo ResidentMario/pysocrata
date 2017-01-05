@@ -1,1 +1,1 @@
-from pysocrata import *
+from .pysocrata import *
