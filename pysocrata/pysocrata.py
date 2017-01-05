@@ -159,7 +159,7 @@ def list_endpoints(domain, token):
     return set(data[i]['link'].split('/')[-1] for i in range(len(data)))
 
 
-def get_counts(domain, token):
+def count_datasets(domain, token):
     """
     Given the domain in question, generates counts for that domain of each of the different data types.
 
