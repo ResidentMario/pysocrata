@@ -9,7 +9,7 @@ setup(
     author = 'Aleksey Bilogur',
     author_email = 'aleksey.bilogur@gmail.com',
     url = 'https://github.com/ResidentMario/pysocrata',
-    download_url = 'https://github.com/ResidentMario/missingno/tarball/0.3.1',
+    download_url = 'https://github.com/ResidentMario/pysocrata/tarball/0.1.0',
     keywords = ['data', 'socrata', 'open data'],
     classifiers = [],
 )
