@@ -115,7 +115,6 @@ def get_datasets(domain, token):
     catalog_endpoints = [d['permalink'].split("/")[-1] for d in catalog_api_output]
     json_endpoints = [d['landingPage'].split("/")[-1] for d in json_endpoints['dataset']]
     datasets = []
-    import pdb; pdb.set_trace()
     for i, endpoint in enumerate(json_endpoints):
         try:
             catalog_ind = catalog_endpoints.index(json_endpoints[i])
