@@ -71,31 +71,47 @@ def get_endpoints_using_catalog_api(domain, token):
     """
     # Token required for all requests. Providing login info instead is also possible but I didn't implement it.
     headers = {"X-App-Token": token}
-    # The API will return only 100 requests at a time, it's up to you to spool the paginations to get the whole thing.
-    uri = "http://api.us.socrata.com/api/catalog/v1?domains={0}&offset={1}"
+    # The API will return only 100 requests at a time by default. We can ask for more, but the server seems to start
+    # to lag after a certain N requested. Instead, let's pick a less conservative pagination limit and spool up with
+    # offsets.
+    #
+    # At the time this library was written, Socrata would return all of its results in a contiguous list. Once you
+    # maxed out, you wouldn't get any more list items. Later on this was changed so that now if you exhaust portal
+    # entities, it will actually take you back to the beginning of the list again!
+    #
+    # As a result we need to perform our own set-wise check to make sure that what we get isn't just a bit of the
+    # same list all over again.
+    uri = "http://api.us.socrata.com/api/catalog/v1?domains={0}&offset={1}&limit=1000"
     ret = []
+    endpoints = set()
     offset = 0
     while True:
         try:
             r = requests.get(uri.format(domain, offset), headers=headers)
             r.raise_for_status()
         except requests.HTTPError:
-            print("WARNING: HTTPError was raised.")
-            break
+            raise requests.HTTPError("An HTTP error was raised during Socrata API ingestion.".format(domain))
         data = r.json()
-        ret += data['results']
-        if len(data['results']) != 100:
-            break
-        else:
+
+        response_length = len(data)
+        new_endpoints = endpoints.difference({r['resource']['id'] for r in data['results']})
+
+        if len(new_endpoints) == 1000:  # we are continuing to stream
+            ret += data['results']
             offset += 100
+            continue
+        else:  # we are ending on a stream with some old endpoints on it
+            ret += [r for r in data['results'] if r['resource']['id'] in new_endpoints]
+            break
+
     # Clean up duplicates---the API now wraps around, so the first bunch of entries get returned again.
-    hashes = set()
-    for i, resource in enumerate(ret):
-        hash = resource['link']
-        length = len(hashes)
-        hashes.add(hash)
-        if len(hashes) == length:
-            del ret[i]
+    # hashes = set()
+    # for i, resource in enumerate(ret):
+    #     hash = resource['link']
+    #     length = len(hashes)
+    #     hashes.add(hash)
+    #     if len(hashes) == length:
+    #         del ret[i]
     return ret
 
 
