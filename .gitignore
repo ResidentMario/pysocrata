@@ -2,3 +2,6 @@
 dist/
 pysocrata.egg-info/
 pysocrata/__pycache__/
+.cache/
+tests/auth/
+tests/__pycache__/

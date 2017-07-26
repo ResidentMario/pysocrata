@@ -83,7 +83,7 @@ def get_endpoints_using_catalog_api(domain, token):
     # same list all over again.
     uri = "http://api.us.socrata.com/api/catalog/v1?domains={0}&offset={1}&limit=1000"
     ret = []
-    endpoints = set()
+    endpoints_thus_far = set()
     offset = 0
     while True:
         try:
@@ -93,25 +93,18 @@ def get_endpoints_using_catalog_api(domain, token):
             raise requests.HTTPError("An HTTP error was raised during Socrata API ingestion.".format(domain))
         data = r.json()
 
-        response_length = len(data)
-        new_endpoints = endpoints.difference({r['resource']['id'] for r in data['results']})
+        endpoints_returned = {r['resource']['id'] for r in data['results']}
+        new_endpoints = endpoints_returned.difference(endpoints_thus_far)
 
         if len(new_endpoints) == 1000:  # we are continuing to stream
             ret += data['results']
-            offset += 100
+            endpoints_thus_far.update(new_endpoints)
+            offset += 1000
             continue
         else:  # we are ending on a stream with some old endpoints on it
             ret += [r for r in data['results'] if r['resource']['id'] in new_endpoints]
             break
 
-    # Clean up duplicates---the API now wraps around, so the first bunch of entries get returned again.
-    # hashes = set()
-    # for i, resource in enumerate(ret):
-    #     hash = resource['link']
-    #     length = len(hashes)
-    #     hashes.add(hash)
-    #     if len(hashes) == length:
-    #         del ret[i]
     return ret
 
 
