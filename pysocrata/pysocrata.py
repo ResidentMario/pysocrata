@@ -96,7 +96,7 @@ def get_endpoints_using_catalog_api(domain, token):
         endpoints_returned = {r['resource']['id'] for r in data['results']}
         new_endpoints = endpoints_returned.difference(endpoints_thus_far)
 
-        if len(new_endpoints) == 1000:  # we are continuing to stream
+        if len(new_endpoints) >= 999:  # we are continuing to stream
             ret += data['results']
             endpoints_thus_far.update(new_endpoints)
             offset += 1000
