@@ -29,14 +29,29 @@ class TestJSONEndpointAPI(unittest.TestCase):
         assert len(result['dataset']) > 1000
 
 
-class TestGetDatasets(unittest.TestCase):
+class TestGetResources(unittest.TestCase):
     """
-    Tests that fetching datasets, the module 'master method', works as expected.
+    Tests that fetching resources, the module 'master method', works as expected. This is a networked test against
+    the New York City Open Data Portal.
     """
     def test(self):
         with open("auth/nyc-open-data.json", "r") as f:
             auth = json.load(f)
-        import pdb; pdb.set_trace()
-        result = pysocrata.get_datasets(**auth)
-        import pdb; pdb.set_trace()
-        pass
+        result = pysocrata.get_resources(**auth)
+
+        # Assert the result list is long enough and contains unique datasets.
+        # cf. https://github.com/ResidentMario/pysocrata/issues/1
+        assert len(result) > 1000
+        assert len(result) == len({r['resource']['id'] for r in result})
+
+
+class TestCountDatasets(unittest.TestCase):
+    """
+    Tests that counting datasets works as expected. This is a networked test against the New York City Open Data
+    Portal.
+    """
+    def test(self):
+        with open("auth/nyc-open-data.json", "r") as f:
+            auth = json.load(f)
+        result = pysocrata.count_resources(**auth)
+        assert {'dataset', 'href', 'file', 'map'}.issuperset(set(result.keys()))

@@ -25,15 +25,13 @@ are very slightly out of date with one another (for reasons indeterminate) there
 datasets which are missing when the two endpoint sets are matched.
 """
 import requests
-import pandas as pd
+from collections import Counter
 
 
 def get_endpoints_using_raw_json_emission(domain):
     """
     Implements a raw HTTP GET against the entire Socrata portal for the domain in question. This method uses the
     first of the two ways of getting this information, the raw JSON endpoint.
-
-    For a scripted way of accessing this method refer to `load_datasets_using_json_endpoint.py`.
 
     Parameters
     ----------
@@ -42,7 +40,7 @@ def get_endpoints_using_raw_json_emission(domain):
 
     Returns
     -------
-    Generates a set of full portal dataset metadata in the form of a JSON-derived dict.
+    Portal dataset metadata from the JSON endpoint.
     """
     uri = "http://{0}/data.json".format(domain)
     r = requests.get(uri)
@@ -55,8 +53,6 @@ def get_endpoints_using_catalog_api(domain, token):
     Implements a raw HTTP GET against the entire Socrata portal for the domain in question. This method uses the
     second of the two ways of getting this information, the catalog API.
 
-    For a scripted way of accessing this method refer to `load_catalog.py`.
-
     Parameters
     ----------
     domain: str
@@ -67,10 +63,11 @@ def get_endpoints_using_catalog_api(domain, token):
 
     Returns
     -------
-    Generates a set of full portal dataset metadata in the form of a JSON-derived dict.
+    Portal dataset metadata from the catalog API.
     """
     # Token required for all requests. Providing login info instead is also possible but I didn't implement it.
     headers = {"X-App-Token": token}
+
     # The API will return only 100 requests at a time by default. We can ask for more, but the server seems to start
     # to lag after a certain N requested. Instead, let's pick a less conservative pagination limit and spool up with
     # offsets.
@@ -85,6 +82,7 @@ def get_endpoints_using_catalog_api(domain, token):
     ret = []
     endpoints_thus_far = set()
     offset = 0
+
     while True:
         try:
             r = requests.get(uri.format(domain, offset), headers=headers)
@@ -97,6 +95,8 @@ def get_endpoints_using_catalog_api(domain, token):
         new_endpoints = endpoints_returned.difference(endpoints_thus_far)
 
         if len(new_endpoints) >= 999:  # we are continuing to stream
+            # TODO: 999 not 1000 b/c the API suffers off-by-one errors. Can also do worse, however. Compensate?
+            # cf. https://github.com/ResidentMario/pysocrata/issues/1
             ret += data['results']
             endpoints_thus_far.update(new_endpoints)
             offset += 1000
@@ -108,42 +108,55 @@ def get_endpoints_using_catalog_api(domain, token):
     return ret
 
 
-def get_datasets(domain, token):
+def get_resources(domain, token):
     """
-    The catalog API and JSON endpoint both return useful information, but the information that they return is useful
-    in slightly different ways. The JSON endpoint provides less information about the dataset in question,
-    including lacking a field for what *type* of dataset the entity in question is, but has the advantage of
-    returning only datasets (endpoints of other things, like charts and filters, are excluded). The catalog API
-    provides more information, and does so for all endpoints, but provides no way of filtering that set down to
-    datasets only because of issues with its categorization of "map" entities.
+    Returns a list of resources (data endpoints) on a Socrata domain.
 
-    For a scripted way of accessing this method refer to `load_dataset.py`.
+    The catalog API and JSON endpoint both return useful information, but the information that they return is useful
+    in slightly different ways. The JSON endpoint provides less information about the resource in question,
+    including lacking a field for what *type* of resources the entity in question is, but has the advantage of
+    returning only data resources (endpoints of other things, like charts and filters, are excluded). The catalog API
+    provides more information, and does so for all endpoints, but provides no way of filtering that set down to
+    resources only because of issues with its categorization of "map" entities.
+
+    Hence, to capture the actual data resources on the portal, we match the APIs against one another.
+
+    Note that it is technically possible for a resource to be published as a filter or view of a private endpoint.
+    This method does not capture resources published in this (highly discouraged, but nevertheless occasionally
+    practiced) manner.
+
+    Also note that this method does not filter out resources with a community provenance. You can filter these out
+    yourself downstream using the `provenance` metadata field.
 
     Parameters
     ----------
-    catalog_emission: list
-        The list of catalog endpoints produced by the catalog API.
-    json_emission: list
-        The list of dataset endpoints produced by the JSON page.
+    domain: str
+        A Socrata data portal domain. "data.seattle.gov" or "data.cityofnewyork.us" for example.
+    token: str
+        A Socrata application token. Application tokens can be registered by going onto the Socrata portal in
+        question, creating an account, logging in, going to developer tools, and spawning a token.
 
     Returns
     -------
-    The matched datsets, e.g. a list of all datasets on the domain (according to our definition of "dataset")
-    obtained from the JSON endpoint, with the metadata provided on them by the catalog endpoint.
+    A list of metadata stores for all data resources on the domain.
     """
     json_endpoints = get_endpoints_using_raw_json_emission(domain)
     catalog_api_output = get_endpoints_using_catalog_api(domain, token)
     catalog_endpoints = [d['permalink'].split("/")[-1] for d in catalog_api_output]
     json_endpoints = [d['landingPage'].split("/")[-1] for d in json_endpoints['dataset']]
-    datasets = []
+    resources = []
     for i, endpoint in enumerate(json_endpoints):
         try:
             catalog_ind = catalog_endpoints.index(json_endpoints[i])
         except ValueError:  # The catalog does not contain this dataset. Skip it.
             pass
         else:
-            datasets.append(catalog_api_output[catalog_ind])
-    return datasets
+            resources.append(catalog_api_output[catalog_ind])
+
+    # Exclude stories, which are remixed, not published, data.
+    resources = [d for d in resources if d['resource']['type'] != 'story']
+
+    return resources
 
 
 def list_endpoints(domain, token):
@@ -179,7 +192,7 @@ def list_endpoints(domain, token):
     return set(data[i]['link'].split('/')[-1] for i in range(len(data)))
 
 
-def count_datasets(domain, token):
+def count_resources(domain, token):
     """
     Given the domain in question, generates counts for that domain of each of the different data types.
 
@@ -193,19 +206,7 @@ def count_datasets(domain, token):
 
     Returns
     -------
-    A pd.Series with counts of the different endpoint types classifiable as published public datasets.
+    A dict with counts of the different endpoint types classifiable as published public datasets.
    """
-    json_endpoint_output = get_endpoints_using_raw_json_emission(domain)
-    catalog_api_output = get_endpoints_using_catalog_api(domain, token)
-    catalog_endpoints = [d['permalink'].split("/")[-1] for d in catalog_api_output]
-    json_endpoints = [json_endpoint_output['dataset'][i]['landingPage'].split("/")[-1] for i in
-                      range(len(json_endpoint_output['dataset']))]
-    json_endpoint_types = []
-    for i, endpoint in enumerate(json_endpoints):
-        try:
-            catalog_ind = catalog_endpoints.index(json_endpoints[i])
-        except ValueError:
-            json_endpoint_types.append("new")
-        else:
-            json_endpoint_types.append(catalog_api_output[catalog_ind]['resource']['type'])
-    return pd.Series(json_endpoint_types).value_counts()
+    resources = get_resources(domain, token)
+    return dict(Counter([r['resource']['type'] for r in resources if r['resource']['type'] != 'story']))
