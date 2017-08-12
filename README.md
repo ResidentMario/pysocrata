@@ -1,3 +1,4 @@
+## pysocrata [![PyPi version](https://img.shields.io/pypi/v/pysocrata.svg)](https://pypi.python.org/pypi/pysocrata/) ![t](https://img.shields.io/badge/status-stable-green.svg)
 
 ### About
 `pysocrata` is a small Python module which provides an interface to the [Socrata](https://socrata.com/) open data 
