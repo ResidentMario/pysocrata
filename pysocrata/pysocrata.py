@@ -159,39 +159,6 @@ def get_resources(domain, token):
     return resources
 
 
-def list_endpoints(domain, token):
-    """
-    Lists all endpoints present on a Socrata data portal instance.
-
-    Parameters
-    ----------
-    domain: str
-        A Socrata data portal domain. "data.seattle.gov" or "data.cityofnewyork.us" for example.
-    token: str
-        A Socrata application token. Application tokens can be registered by going onto the Socrata portal in
-        question, creating an account, logging in, going to developer tools, and spawning a token.
-
-    Returns
-    -------
-    Socrata implements the URIs for the endpoints that it hosts as endpoint hashes. So for example the NYPD motor
-    vehicle collisions dataset is hosted at:
-
-    https://data.cityofnewyork.us/Public-Safety/NYPD-Motor-Vehicle-Collisions/h9gi-nx95
-
-    The first parts of the URI are helpful metadata injected on the portal into the URI, but are not actually
-    necessary parts of the URI in and of themselves. This works just as well, serving a 304 Redirect to the same page:
-
-    https://data.cityofnewyork.us/-/-/h9gi-nx95
-
-    In other words the only part of the URI that matters is the hash at the end of it, "h9gi-nx95" in this case.
-
-    This process returns all of the datasets' unique hashes. Note that datasets != endpoints --- endpoints returned
-    by the above function include things like charts and views which are not the core datasets themselves.
-    """
-    data = get_endpoints_using_catalog_api(domain, token)
-    return set(data[i]['link'].split('/')[-1] for i in range(len(data)))
-
-
 def count_resources(domain, token):
     """
     Given the domain in question, generates counts for that domain of each of the different data types.
